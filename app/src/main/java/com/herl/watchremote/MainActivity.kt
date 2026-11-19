@@ -74,6 +74,15 @@ class MainActivity : Activity() {
             }
         })
 
+        root.addView(button("⑤ 睡前模式（12 分钟不动就停）") {
+            val on = !SleepGuard.enabled
+            SleepGuard.setEnabled(this, on)
+            getSharedPreferences("watchremote", MODE_PRIVATE).edit()
+                .putBoolean("sleep_enabled", on).apply()
+            WearBridge.sendToWatch(if (on) "{\"t\":\"sleep_state\",\"on\":true}" else "{\"t\":\"sleep_state\",\"on\":false}")
+            status.text = if (on) "睡前模式已开：有声音 + 12 分钟没操作就暂停锁屏" else "睡前模式已关"
+        })
+
         val hint = TextView(this).apply {
             text = "用法：手表上打开「手表遥控」→ 手指上下滑 = 平板翻页\n返回/主页/音量在手表底部的按键条上。"
             textSize = 13f
