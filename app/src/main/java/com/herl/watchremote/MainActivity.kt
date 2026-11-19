@@ -67,7 +67,10 @@ class MainActivity : Activity() {
                 )
             } else {
                 CursorOverlay.show(ctx)
-                status.text = if (CursorOverlay.visible) "光标已显示（可配合手表移动）" else "悬浮窗添加失败"
+                status.text = "正在显示光标…"
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    status.text = if (CursorOverlay.visible) "光标已显示（手表可移动它）" else "悬浮窗添加失败"
+                }, 600)
             }
         })
 
