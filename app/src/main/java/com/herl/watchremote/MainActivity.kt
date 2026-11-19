@@ -52,6 +52,24 @@ class MainActivity : Activity() {
             val ok = RemoteAccessibilityService.instance?.swipe(0, -600, 300) ?: false
             status.text = if (ok) "已发送一次上滑（成功）" else "发送失败：无障碍服务没开"
         })
+        root.addView(button("④ 光标开关（悬浮窗）") {
+            val ctx = this
+            if (CursorOverlay.visible) {
+                CursorOverlay.hide()
+                status.text = "光标已关闭"
+            } else if (!CursorOverlay.canDraw(ctx)) {
+                status.text = "缺少悬浮窗权限，正在跳转设置"
+                startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        android.net.Uri.parse("package:$packageName")
+                    )
+                )
+            } else {
+                CursorOverlay.show(ctx)
+                status.text = if (CursorOverlay.visible) "光标已显示（可配合手表移动）" else "悬浮窗添加失败"
+            }
+        })
 
         val hint = TextView(this).apply {
             text = "用法：手表上打开「手表遥控」→ 手指上下滑 = 平板翻页\n返回/主页/音量在手表底部的按键条上。"
