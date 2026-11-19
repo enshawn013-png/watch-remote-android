@@ -1,0 +1,48 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.herl.watchremote'
+    compileSdk 34
+
+    defaultConfig {
+        // 必须和手表 rpk 的 manifest.package 完全一致，否则 interconnect 连不上
+        applicationId "com.herl.watchremote"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "0.1.0"
+    }
+
+    signingConfigs {
+        // 与 rpk 同一把私钥（sign/private.pem -> apk-signing.p12）
+        release {
+            storeFile file(System.getenv("KEYSTORE_PATH") ?: "../keystore.p12")
+            storePassword System.getenv("KEYSTORE_PASS") ?: "watchremote"
+            keyAlias System.getenv("KEY_ALIAS") ?: "watchremote"
+            keyPassword System.getenv("KEYSTORE_PASS") ?: "watchremote"
+            storeType "PKCS12"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = '17' }
+}
+
+dependencies {
+    implementation fileTree(dir: "libs", include: ["*.jar", "*.aar"])
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.annotation:annotation:1.7.1'
+}
