@@ -62,6 +62,9 @@ class MainActivity : Activity() {
         root.addView(hint, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
 
         setContentView(root)
+
+        // 常驻服务：打开一次 App 后通道一直在，之后手表直接可用
+        startForegroundService(Intent(this, BridgeService::class.java))
     }
 
     override fun onResume() {
