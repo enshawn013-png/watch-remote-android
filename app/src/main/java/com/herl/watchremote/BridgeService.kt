@@ -27,6 +27,9 @@ class BridgeService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTI_ID, buildNotification())
         WearBridge.connect(this)
+        if (WearBridge.isSleepEnabled(this) && !SleepGuard.enabled) {
+            SleepGuard.setEnabled(this, true)
+        }
         return START_STICKY
     }
 
