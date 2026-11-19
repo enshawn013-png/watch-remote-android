@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">手表遥控</string>
+    <string name="acc_desc">接收手表发来的滑动/点击指令，在本机模拟触摸操作（抖音翻页等）。只在你手动开启后工作。</string>
+</resources>
