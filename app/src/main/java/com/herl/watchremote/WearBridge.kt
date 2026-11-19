@@ -1,6 +1,8 @@
 package com.herl.watchremote
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.xiaomi.xms.wearable.Wearable
 import com.xiaomi.xms.wearable.message.OnMessageReceivedListener
@@ -24,27 +26,46 @@ object WearBridge {
         handle(text)
     }
 
+    private val handler = Handler(Looper.getMainLooper())
+    private var attached = false
+    private var polling = false
+
+    /** 手表可能还没就绪，所以每 2 秒重试一次，直到挂上监听 */
     fun connect(ctx: Context) {
-        Wearable.getNodeApi(ctx).connectedNodes
-            .addOnSuccessListener { nodes ->
-                if (nodes.isNullOrEmpty()) {
-                    lastStatus = "没有已连接的设备（先用小米运动健康连手表）"
-                    return@addOnSuccessListener
-                }
-                val node = nodes.first()
-                lastStatus = "已连接: " + (node.name ?: node.id)
-                Wearable.getMessageApi(ctx)
-                    .addListener(node.id, listener)
-                    .addOnSuccessListener { Log.i(TAG, "listener attached") }
-                    .addOnFailureListener { e ->
-                        lastStatus = "监听失败: " + e.message
-                        Log.e(TAG, "addListener fail", e)
+        if (polling) return
+        polling = true
+        val nodeApi = Wearable.getNodeApi(ctx)
+
+        val poll = object : Runnable {
+            override fun run() {
+                if (attached) { polling = false; return }
+                nodeApi.connectedNodes
+                    .addOnSuccessListener { nodes ->
+                        if (!nodes.isNullOrEmpty()) {
+                            val node = nodes.first()
+                            lastStatus = "已连接: " + (node.name ?: node.id)
+                            Wearable.getMessageApi(ctx)
+                                .addListener(node.id, listener)
+                                .addOnSuccessListener {
+                                    attached = true
+                                    lastStatus = "通道就绪: " + (node.name ?: node.id)
+                                    Log.i(TAG, "listener attached")
+                                }
+                                .addOnFailureListener { e ->
+                                    lastStatus = "监听失败: " + e.message
+                                    Log.e(TAG, "addListener fail", e)
+                                }
+                        } else {
+                            lastStatus = "等待手表连接…"
+                        }
                     }
+                    .addOnFailureListener { e ->
+                        lastStatus = "查询失败: " + e.message
+                    }
+                handler.postDelayed(this, 2000)
             }
-            .addOnFailureListener { e ->
-                lastStatus = "连接失败: " + e.message
-                Log.e(TAG, "connectedNodes fail", e)
-            }
+        }
+        poll.run()
     }
 
     fun handle(json: String) {
