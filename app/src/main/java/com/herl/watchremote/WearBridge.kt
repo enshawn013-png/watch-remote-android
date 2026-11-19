@@ -112,12 +112,36 @@ object WearBridge {
             val o = JSONObject(json)
             when (o.optString("t")) {
                 "swipe" -> svc.swipe(o.optInt("dx", 0), o.optInt("dy", 0), o.optInt("ms", 300))
-                "tap" -> svc.tap(o.optDouble("x", 0.5).toFloat(), o.optDouble("y", 0.5).toFloat())
+                "tap" -> svc.tapCenter()
                 "key" -> {
                     val k = o.optString("k")
                     if (k == "back" || k == "home" || k == "recents" || k == "notifications") svc.global(k)
                     else svc.media(k)
                 }
+                // 光标模式
+                "cursor" -> {
+                    val on = o.optBoolean("on", false)
+                    CursorOverlay.toggle(svc, on)
+                    lastStatus = if (on) "光标模式 ✓" else "滑动模式"
+                }
+                "move" -> CursorOverlay.move(
+                    o.optDouble("dx", 0.0).toFloat(),
+                    o.optDouble("dy", 0.0).toFloat()
+                )
+                "click" -> {
+                    if (CursorOverlay.visible) svc.tapAt(CursorOverlay.centerX(), CursorOverlay.centerY())
+                    else svc.tapCenter()
+                }
+                "long" -> {
+                    if (CursorOverlay.visible) svc.longPressAt(CursorOverlay.centerX(), CursorOverlay.centerY())
+                    else svc.longPressCenter()
+                }
+                "dbl" -> {
+                    if (CursorOverlay.visible) svc.doubleTap(CursorOverlay.centerX(), CursorOverlay.centerY())
+                    else svc.doubleTapCenter()
+                }
+                "burst" -> svc.burst(o.optInt("n", 5), o.optInt("dx", 0), o.optInt("dy", -600))
+                "hello" -> lastStatus = "手表已握手 ✓"
             }
         } catch (e: Exception) {
             Log.e(TAG, "bad message: $json", e)
