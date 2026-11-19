@@ -63,8 +63,22 @@ class MainActivity : Activity() {
 
         setContentView(root)
 
+        // Android 13+ 的蓝牙运行时权限：没有它，connectedDevice 前台服务会被系统拒绝
+        val need = mutableListOf<String>()
+        if (android.os.Build.VERSION.SDK_INT >= 31 &&
+            checkSelfPermission(android.Manifest.permission.BLUETOOTH_CONNECT) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) need += android.Manifest.permission.BLUETOOTH_CONNECT
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) need += android.Manifest.permission.POST_NOTIFICATIONS
+        if (need.isNotEmpty()) requestPermissions(need.toTypedArray(), 100)
+
         // 常驻服务：打开一次 App 后通道一直在，之后手表直接可用
-        startForegroundService(Intent(this, BridgeService::class.java))
+        try {
+            startForegroundService(Intent(this, BridgeService::class.java))
+        } catch (e: Exception) {
+            status.text = "常驻服务启动失败: ${e.message}"
+        }
     }
 
     override fun onResume() {
