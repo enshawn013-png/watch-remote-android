@@ -35,7 +35,16 @@ class RemoteAccessibilityService : AccessibilityService() {
         super.onDestroy()
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        // 任何点击/滑动/切页都算"人还醒着"
+        when (event?.eventType) {
+            AccessibilityEvent.TYPE_VIEW_CLICKED,
+            AccessibilityEvent.TYPE_VIEW_SCROLLED,
+            AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED,
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
+            AccessibilityEvent.TYPE_TOUCH_INTERACTION_START -> SleepGuard.noteActivity()
+        }
+    }
 
     override fun onInterrupt() {}
 
@@ -137,11 +146,21 @@ class RemoteAccessibilityService : AccessibilityService() {
         when (what) {
             "volup" -> am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
             "voldown" -> am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI)
-            "play" -> {
-                // 用两参数构造（time 版在 Kotlin 里重载解析会挑错分支）
-                am.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
-                am.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE))
-            }
+            "play" -> key(am, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+            "pause" -> key(am, KeyEvent.KEYCODE_MEDIA_PAUSE)
+            "next" -> key(am, KeyEvent.KEYCODE_MEDIA_NEXT)
+            "prev" -> key(am, KeyEvent.KEYCODE_MEDIA_PREVIOUS)
         }
+    }
+
+    private fun key(am: AudioManager, code: Int) {
+        am.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, code))
+        am.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_UP, code))
+    }
+
+    /** 睡眠守护用：明确暂停（不是切换） */
+    fun pauseMedia() {
+        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        key(am, KeyEvent.KEYCODE_MEDIA_PAUSE)
     }
 }
