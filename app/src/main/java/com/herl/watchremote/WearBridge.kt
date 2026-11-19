@@ -30,6 +30,7 @@ object WearBridge {
     private val handler = Handler(Looper.getMainLooper())
     private var attached = false
     private var polling = false
+    private var nodeId: String? = null
 
     /** 手表可能还没就绪，所以每 2 秒重试一次，直到挂上监听 */
     fun connect(ctx: Context) {
@@ -89,6 +90,7 @@ object WearBridge {
     }
 
     private fun attach(ctx: Context, id: String) {
+        nodeId = id
         Wearable.getMessageApi(ctx).addListener(id, listener)
             .addOnSuccessListener {
                 attached = true
@@ -142,9 +144,42 @@ object WearBridge {
                 }
                 "burst" -> svc.burst(o.optInt("n", 5), o.optInt("dx", 0), o.optInt("dy", -600))
                 "hello" -> lastStatus = "手表已握手 ✓"
+                // 睡前模式开关 / 用户表示自己还醒着
+                "sleep" -> {
+                    val on = o.optBoolean("on", false)
+                    SleepGuard.setEnabled(svc, on)
+                    saveSleepFlag(on)
+                    lastStatus = if (on) "睡前模式 ✓" else "睡前模式关闭"
+                }
+                "awake" -> {
+                    SleepGuard.noteActivity()
+                    lastStatus = "收到「我醒着」，计时重置"
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "bad message: $json", e)
         }
     }
+
+    /** 平板 -> 手表：用于预警("t":"warn")和已停止("t":"slept") */
+    fun sendToWatch(json: String) {
+        val id = nodeId ?: return
+        val ctx = RemoteAccessibilityService.instance?.applicationContext ?: return
+        try {
+            Wearable.getMessageApi(ctx).sendMessage(id, json.toByteArray(Charsets.UTF_8))
+                .addOnFailureListener { e -> Log.e(TAG, "sendMessage fail", e) }
+        } catch (e: Exception) {
+            Log.e(TAG, "sendMessage exception", e)
+        }
+    }
+
+    fun saveSleepFlag(on: Boolean) {
+        val ctx = RemoteAccessibilityService.instance?.applicationContext ?: return
+        ctx.getSharedPreferences("watchremote", Context.MODE_PRIVATE)
+            .edit().putBoolean("sleep_enabled", on).apply()
+    }
+
+    fun isSleepEnabled(ctx: Context): Boolean =
+        ctx.getSharedPreferences("watchremote", Context.MODE_PRIVATE)
+            .getBoolean("sleep_enabled", false)
 }
