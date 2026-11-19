@@ -5,6 +5,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import com.xiaomi.xms.wearable.Wearable
+import com.xiaomi.xms.wearable.auth.Permission
 import com.xiaomi.xms.wearable.message.OnMessageReceivedListener
 import org.json.JSONObject
 
@@ -43,29 +44,62 @@ object WearBridge {
                     .addOnSuccessListener { nodes ->
                         if (!nodes.isNullOrEmpty()) {
                             val node = nodes.first()
-                            lastStatus = "已连接: " + (node.name ?: node.id)
-                            Wearable.getMessageApi(ctx)
-                                .addListener(node.id, listener)
-                                .addOnSuccessListener {
-                                    attached = true
-                                    lastStatus = "通道就绪: " + (node.name ?: node.id)
-                                    Log.i(TAG, "listener attached")
-                                }
-                                .addOnFailureListener { e ->
-                                    lastStatus = "监听失败: " + e.message
-                                    Log.e(TAG, "addListener fail", e)
-                                }
+                            lastStatus = "发现设备: " + (node.name ?: node.id)
+                            ensurePermission(ctx, node.id)
                         } else {
                             lastStatus = "等待手表连接…"
+                            handler.postDelayed(this, 2000)
                         }
                     }
                     .addOnFailureListener { e ->
                         lastStatus = "查询失败: " + e.message
+                        handler.postDelayed(this, 2000)
                     }
-                handler.postDelayed(this, 2000)
             }
         }
         poll.run()
+    }
+
+    /** interconnect 必须先拿 DEVICE_MANAGER 授权，手表上会弹确认 */
+    private fun ensurePermission(ctx: Context, id: String) {
+        val auth = Wearable.getAuthApi(ctx)
+        auth.checkPermission(id, Permission.DEVICE_MANAGER)
+            .addOnSuccessListener { granted ->
+                if (granted) {
+                    attach(ctx, id)
+                } else {
+                    lastStatus = "等待手表上确认授权…"
+                    auth.requestPermission(id, Permission.DEVICE_MANAGER)
+                        .addOnSuccessListener {
+                            lastStatus = "已授权，正在挂监听"
+                            attach(ctx, id)
+                        }
+                        .addOnFailureListener { e ->
+                            lastStatus = "授权失败: " + e.message
+                            Log.e(TAG, "requestPermission fail", e)
+                            handler.postDelayed({ ensurePermission(ctx, id) }, 5000)
+                        }
+                }
+            }
+            .addOnFailureListener { e ->
+                lastStatus = "权限查询失败: " + e.message
+                Log.w(TAG, "checkPermission fail", e)
+                attach(ctx, id)
+            }
+    }
+
+    private fun attach(ctx: Context, id: String) {
+        Wearable.getMessageApi(ctx).addListener(id, listener)
+            .addOnSuccessListener {
+                attached = true
+                polling = false
+                lastStatus = "通道就绪 ✓"
+                Log.i(TAG, "listener attached")
+            }
+            .addOnFailureListener { e ->
+                lastStatus = "监听失败: " + e.message
+                Log.e(TAG, "addListener fail", e)
+            }
     }
 
     fun handle(json: String) {
