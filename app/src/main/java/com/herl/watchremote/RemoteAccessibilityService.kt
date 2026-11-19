@@ -5,6 +5,8 @@ import android.accessibilityservice.GestureDescription
 import android.content.Context
 import android.graphics.Path
 import android.media.AudioManager
+import android.os.Handler
+import android.os.Looper
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import kotlin.math.abs
@@ -25,6 +27,8 @@ class RemoteAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         instance = this
     }
+
+    private val handler = Handler(Looper.getMainLooper())
 
     override fun onDestroy() {
         instance = null
@@ -68,9 +72,53 @@ class RemoteAccessibilityService : AccessibilityService() {
     fun tap(xRatio: Float = 0.5f, yRatio: Float = 0.5f): Boolean {
         val w = resources.displayMetrics.widthPixels
         val h = resources.displayMetrics.heightPixels
-        val path = Path().apply { moveTo(w * xRatio, h * yRatio) }
+        return tapAt(w * xRatio, h * yRatio)
+    }
+
+    /** 在屏幕绝对坐标点击（光标模式用） */
+    fun tapAt(x: Float, y: Float): Boolean {
+        val path = Path().apply { moveTo(x, y) }
         val stroke = GestureDescription.StrokeDescription(path, 0, 60)
         return dispatchGesture(GestureDescription.Builder().addStroke(stroke).build(), null, null)
+    }
+
+    /** 长按：抖音里长按 = 倍速播放 */
+    fun longPressAt(x: Float, y: Float, ms: Long = 600): Boolean {
+        val path = Path().apply { moveTo(x, y) }
+        val stroke = GestureDescription.StrokeDescription(path, 0, ms.coerceIn(300L, 2000L))
+        return dispatchGesture(GestureDescription.Builder().addStroke(stroke).build(), null, null)
+    }
+
+    fun tapCenter(): Boolean {
+        val w = resources.displayMetrics.widthPixels
+        val h = resources.displayMetrics.heightPixels
+        return tapAt(w / 2f, h / 2f)
+    }
+
+    fun longPressCenter(): Boolean {
+        val w = resources.displayMetrics.widthPixels
+        val h = resources.displayMetrics.heightPixels
+        return longPressAt(w / 2f, h / 2f)
+    }
+
+    /** 双击：两次点击间隔 90ms（太短系统会当单击） */
+    fun doubleTap(x: Float, y: Float) {
+        tapAt(x, y)
+        handler.postDelayed({ tapAt(x, y) }, 90)
+    }
+
+    fun doubleTapCenter() {
+        val w = resources.displayMetrics.widthPixels
+        val h = resources.displayMetrics.heightPixels
+        doubleTap(w / 2f, h / 2f)
+    }
+
+    /** 连滑 n 条：每条间隔 420ms，留出动画时间 */
+    fun burst(n: Int, dx: Int, dy: Int) {
+        val count = n.coerceIn(1, 30)
+        for (i in 0 until count) {
+            handler.postDelayed({ swipe(dx, dy, 260) }, i * 420L)
+        }
     }
 
     fun global(action: String): Boolean {
