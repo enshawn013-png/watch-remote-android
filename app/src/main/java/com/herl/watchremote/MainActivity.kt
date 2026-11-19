@@ -4,6 +4,8 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -64,8 +66,15 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        val on = RemoteAccessibilityService.instance != null
-        status.text = (if (on) "无障碍：已开启" else "无障碍：未开启") + "\n" + WearBridge.lastStatus
+        val h = Handler(Looper.getMainLooper())
+        val ticker = object : Runnable {
+            override fun run() {
+                val on = RemoteAccessibilityService.instance != null
+                status.text = (if (on) "无障碍：已开启" else "无障碍：未开启") + "\n" + WearBridge.lastStatus
+                h.postDelayed(this, 1000)
+            }
+        }
+        h.post(ticker)
     }
 
     private fun button(label: String, onClick: () -> Unit): Button =
